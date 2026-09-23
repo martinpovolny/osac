@@ -30,10 +30,14 @@ import (
 )
 
 func canonicalEvent(id, resourceID, resourceType string) cloudevents.Event {
+	return canonicalEventWithType(id, resourceID, resourceType, "osac.resource.created.v1")
+}
+
+func canonicalEventWithType(id, resourceID, resourceType, eventType string) cloudevents.Event {
 	ce := cloudevents.NewEvent()
 	ce.SetSpecVersion("1.0")
 	ce.SetID(id)
-	ce.SetType("osac.resource.lifecycle.v1")
+	ce.SetType(eventType)
 	ce.SetSource("osac-metering-service")
 	ce.SetSubject(resourceType + "/" + resourceID)
 	ce.SetTime(time.Date(2026, 8, 28, 10, 0, 0, 0, time.UTC))
@@ -41,19 +45,36 @@ func canonicalEvent(id, resourceID, resourceType string) cloudevents.Event {
 	ce.SetExtension(schema.ExtResourceID, resourceID)
 	ce.SetExtension(schema.ExtResourceType, resourceType)
 	ce.SetExtension(schema.ExtTenant, "tenant-acme")
+	billingDimensions := map[string]any{}
+	switch resourceType {
+	case schema.ResourceTypeComputeInstance:
+		billingDimensions["instance_type"] = "standard-4-8"
+	case schema.ResourceTypeClusterOrder:
+		billingDimensions["cluster_template"] = "osac.templates.ocp_ci_small"
+		billingDimensions["host_type"] = "_control_plane"
+	case resourceTypeMaaSInference:
+		billingDimensions["model"] = "llama-3"
+		billingDimensions["prompt_tokens"] = 10
+		billingDimensions["completion_tokens"] = 5
+	}
 	ExpectWithOffset(1, ce.SetData(cloudevents.ApplicationJSON, map[string]any{
-		"resource_id":     resourceID,
-		"resource_type":   resourceType,
-		"tenant_id":       "tenant-acme",
-		"current_state":   "running",
-		"transition_time": "2026-08-28T10:00:00Z",
-		"schema_version":  "v1",
+		"resource_id":        resourceID,
+		"resource_type":      resourceType,
+		"tenant_id":          "tenant-acme",
+		"current_state":      "running",
+		"transition_time":    "2026-08-28T10:00:00Z",
+		"billing_dimensions": billingDimensions,
+		"schema_version":     "v1",
 	})).To(Succeed())
 	return ce
 }
 
 func adapterEvent(id, resourceID, resourceType string) adapters.MeteringEvent {
 	return adapters.MeteringEvent{CloudEvent: canonicalEvent(id, resourceID, resourceType)}
+}
+
+func adapterEventWithType(id, resourceID, resourceType, eventType string) adapters.MeteringEvent {
+	return adapters.MeteringEvent{CloudEvent: canonicalEventWithType(id, resourceID, resourceType, eventType)}
 }
 
 var _ = Describe("costManagementAdapter", func() {
@@ -72,7 +93,7 @@ var _ = Describe("costManagementAdapter", func() {
 			for _, event := range []adapters.MeteringEvent{
 				adapterEvent("vm-1", "vm-1", schema.ResourceTypeComputeInstance),
 				adapterEvent("cluster-1", "cluster-1", schema.ResourceTypeClusterOrder),
-				adapterEvent("inference-1", "request-1", resourceTypeMaaSInference),
+				adapterEventWithType("inference-1", "request-1", resourceTypeMaaSInference, "osac.inference.usage.v1"),
 			} {
 				Expect(adapter.Submit(context.Background(), event)).To(Succeed())
 			}
@@ -142,7 +163,7 @@ var _ = Describe("costManagementAdapter", func() {
 			for _, event := range []adapters.MeteringEvent{
 				adapterEvent("vm-1", "vm-1", schema.ResourceTypeComputeInstance),
 				adapterEvent("cluster-1", "cluster-1", schema.ResourceTypeClusterOrder),
-				adapterEvent("inference-1", "request-1", resourceTypeMaaSInference),
+				adapterEventWithType("inference-1", "request-1", resourceTypeMaaSInference, "osac.inference.usage.v1"),
 			} {
 				Expect(adapter.Submit(context.Background(), event)).To(Succeed())
 			}

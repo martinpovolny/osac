@@ -31,8 +31,10 @@ func main() {
 	if err := validateCostManagementURL(costURL); err != nil {
 		log.Fatal(err)
 	}
-	tokenFile := envutil.RequireEnv("COST_MANAGEMENT_API_TOKEN_FILE")
-	token := envutil.ReadFileOrFatal(tokenFile)
+	token := ""
+	if tokenFile := os.Getenv("COST_MANAGEMENT_API_TOKEN_FILE"); tokenFile != "" {
+		token = envutil.ReadFileOrFatal(tokenFile)
+	}
 
 	topics := adapters.AllTopics
 	if v := os.Getenv("KAFKA_TOPICS"); v != "" {
