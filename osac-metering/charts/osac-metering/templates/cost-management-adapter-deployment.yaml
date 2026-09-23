@@ -33,9 +33,11 @@ spec:
         - name: ca-bundle
           configMap:
             name: {{ .Values.certs.caBundle.configMap }}
+        {{- if .Values.costManagementAdapter.costManagement.apiTokenSecret }}
         - name: cost-management-api-token
           secret:
-            secretName: {{ required "costManagementAdapter.costManagement.apiTokenSecret is required when costManagementAdapter is enabled" .Values.costManagementAdapter.costManagement.apiTokenSecret }}
+            secretName: {{ .Values.costManagementAdapter.costManagement.apiTokenSecret }}
+        {{- end }}
         - name: tmp
           emptyDir:
             sizeLimit: 10Mi
@@ -101,13 +103,17 @@ spec:
             - name: KAFKA_SASL_USERNAME
               value: osac-metering-cost-management-adapter
             - name: KAFKA_CONSUMER_GROUP
-              value: osac-metering-cost-management-adapter
+              value: {{ .Values.costManagementAdapter.costManagement.consumerGroup | default "osac-metering-cost-management-adapter" | quote }}
+            - name: KAFKA_START_OFFSET
+              value: {{ .Values.costManagementAdapter.costManagement.startOffset | default "oldest" | quote }}
             - name: KAFKA_SASL_PASSWORD_FILE
               value: /etc/kafka-secrets/password
             - name: COST_MANAGEMENT_API_URL
               value: {{ required "costManagementAdapter.costManagement.apiUrl is required when costManagementAdapter is enabled" .Values.costManagementAdapter.costManagement.apiUrl | quote }}
+            {{- if .Values.costManagementAdapter.costManagement.apiTokenSecret }}
             - name: COST_MANAGEMENT_API_TOKEN_FILE
               value: /etc/cost-management/api-token
+            {{- end }}
             - name: DLQ_TOPIC
               value: "osac.metering.dlq"
             - name: DLQ_ENABLED
@@ -121,9 +127,11 @@ spec:
             - name: ca-bundle
               mountPath: /etc/ca-bundle
               readOnly: true
+            {{- if .Values.costManagementAdapter.costManagement.apiTokenSecret }}
             - name: cost-management-api-token
               mountPath: /etc/cost-management
               readOnly: true
+            {{- end }}
           ports:
             - name: http
               containerPort: 8080

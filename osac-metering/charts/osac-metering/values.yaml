@@ -67,7 +67,8 @@ m360Adapter:
     apiVersion: "v1"
 
 ## Cost Management adapter — batches canonical CloudEvents into Cost's
-## durable ingress endpoint. The API token is mounted from a Secret.
+## durable ingress endpoint. Configure apiTokenSecret for authenticated
+## deployments; omit it for local development with receiver auth disabled.
 costManagementAdapter:
   enabled: false
   image:
@@ -77,3 +78,5 @@ costManagementAdapter:
   costManagement:
     apiUrl: ""
     apiTokenSecret: "" # name of a K8s Secret with key "api-token"
+    consumerGroup: "osac-metering-cost-management-adapter"
+    startOffset: "oldest" # oldest or newest
