@@ -17,6 +17,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -41,6 +42,7 @@ type costManagementClient struct {
 	batchURL   string
 	readyURL   string
 	token      string
+	tokenFile  string
 }
 
 func newCostManagementClient(baseURL, token string) *costManagementClient {
@@ -50,6 +52,12 @@ func newCostManagementClient(baseURL, token string) *costManagementClient {
 		readyURL:   strings.TrimRight(baseURL, "/") + costReadyPath,
 		token:      token,
 	}
+}
+
+func newCostManagementClientFromTokenFile(baseURL, tokenFile string) *costManagementClient {
+	client := newCostManagementClient(baseURL, "")
+	client.tokenFile = tokenFile
+	return client
 }
 
 func validateCostManagementURL(rawURL string) error {
@@ -73,8 +81,12 @@ func (c *costManagementClient) postBatch(ctx context.Context, payload []byte) er
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+	token, err := c.authorizationToken()
+	if err != nil {
+		return err
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -91,6 +103,22 @@ func (c *costManagementClient) postBatch(ctx context.Context, payload []byte) er
 		body = []byte("[response body unreadable]")
 	}
 	return fmt.Errorf("cost management batch endpoint returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+}
+
+func (c *costManagementClient) authorizationToken() (string, error) {
+	if c.tokenFile == "" {
+		return c.token, nil
+	}
+
+	data, err := os.ReadFile(c.tokenFile)
+	if err != nil {
+		return "", fmt.Errorf("read Cost Management API token: %w", err)
+	}
+	token := strings.TrimSpace(string(data))
+	if token == "" {
+		return "", fmt.Errorf("Cost Management API token file %q is empty", c.tokenFile)
+	}
+	return token, nil
 }
 
 func (c *costManagementClient) healthCheck(ctx context.Context) error {

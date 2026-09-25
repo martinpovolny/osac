@@ -31,9 +31,14 @@ func main() {
 	if err := validateCostManagementURL(costURL); err != nil {
 		log.Fatal(err)
 	}
-	token := ""
+	var costClient *costManagementClient
 	if tokenFile := os.Getenv("COST_MANAGEMENT_API_TOKEN_FILE"); tokenFile != "" {
-		token = envutil.ReadFileOrFatal(tokenFile)
+		// Validate the mounted Secret during startup, then keep the file path so
+		// every request observes Kubernetes Secret rotation.
+		envutil.ReadFileOrFatal(tokenFile)
+		costClient = newCostManagementClientFromTokenFile(costURL, tokenFile)
+	} else {
+		costClient = newCostManagementClient(costURL, "")
 	}
 
 	topics := adapters.AllTopics
@@ -71,7 +76,7 @@ func main() {
 	if dlqOpt != nil {
 		opts = append(opts, dlqOpt)
 	}
-	adapter := newCostManagementAdapter(newCostManagementClient(costURL, token))
+	adapter := newCostManagementAdapter(costClient)
 	runner := adapters.NewRunner(adapter, adapters.RunnerConfig{
 		Brokers:       brokers,
 		ConsumerGroup: group,

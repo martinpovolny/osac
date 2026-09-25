@@ -21,17 +21,22 @@ request contains at most 100 events and is no larger than 1 MiB. Cost returns
 Cost's receipt ledger makes a replay of an accepted batch a no-op.
 
 When Cost Management authentication is enabled, `COST_MANAGEMENT_API_TOKEN_FILE`
-points to a mounted Secret file. The adapter sets a bearer authorization header
-and neither logs the token nor puts it in a Kubernetes environment value. The
-variable may be omitted for a local receiver with authentication disabled;
-production deployments should provide the Secret and use HTTPS.
+points to a mounted Secret file. The adapter reads that file for every batch
+request, so a Kubernetes Secret update takes effect without restarting the
+adapter. It sets a bearer authorization header and neither logs the token nor
+puts it in a Kubernetes environment value. The variable may be omitted for a
+local receiver with authentication disabled; production deployments should
+provide the Secret and use HTTPS.
 
 The adapter readiness probe calls the receiver's `GET /readyz` endpoint and
 reports not-ready for any non-2xx response.
 
-The Helm chart exposes `consumerGroup` and `startOffset` under
-`costManagementAdapter.costManagement`. `startOffset` accepts `oldest` (the
-default) or `newest` and is passed to Kafka as `KAFKA_START_OFFSET`.
+The adapter is packaged as the standalone
+`osac-metering/charts/cost-management-adapter` chart. The OSAC installer
+exposes it as the `costManagementAdapter` dependency. Both forms expose
+`costManagement.consumerGroup` and `costManagement.startOffset`; the latter
+accepts `oldest` (the default) or `newest` and is passed to Kafka as
+`KAFKA_START_OFFSET`.
 
 ## Failure semantics
 
