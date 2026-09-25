@@ -14,8 +14,8 @@ make build-cost-management-adapter
 
 cd "${metering_dir}"
 make helm-lint
-helm template osac-metering charts/osac-metering \
-  --set costManagementAdapter.enabled=true \
-  --set costManagementAdapter.costManagement.apiUrl=https://cost.example.test \
-  --set costManagementAdapter.costManagement.apiTokenSecret=cost-api-token \
-  >/dev/null
+helm template cost-management-adapter charts/cost-management-adapter \
+	--set enabled=true \
+	--set costManagement.apiUrl=https://cost.example.test \
+	--set costManagement.apiTokenSecret=cost-api-token \
+	>/dev/null

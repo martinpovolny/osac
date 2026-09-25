@@ -17,6 +17,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -181,6 +183,29 @@ var _ = Describe("costManagementAdapter", func() {
 			Expect(batch.Events[1].Extensions()[schema.ExtResourceType]).To(Equal(schema.ResourceTypeClusterOrder))
 			Expect(batch.Events[2].Extensions()[schema.ExtResourceType]).To(Equal(resourceTypeMaaSInference))
 			Expect(adapter.pendingCount()).To(BeZero())
+		})
+
+		It("reads a rotated token before each delivery", func() {
+			tokenFile := filepath.Join(GinkgoT().TempDir(), "api-token")
+			Expect(os.WriteFile(tokenFile, []byte("first-token\n"), 0600)).To(Succeed())
+
+			var capturedAuth []string
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedAuth = append(capturedAuth, r.Header.Get("Authorization"))
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			adapter = newCostManagementAdapter(newCostManagementClientFromTokenFile(server.URL, tokenFile))
+
+			Expect(adapter.Submit(context.Background(), adapterEvent("vm-1", "vm-1", schema.ResourceTypeComputeInstance))).To(Succeed())
+			_, err := adapter.Flush(context.Background())
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(os.WriteFile(tokenFile, []byte("second-token\n"), 0600)).To(Succeed())
+			Expect(adapter.Submit(context.Background(), adapterEvent("vm-2", "vm-2", schema.ResourceTypeComputeInstance))).To(Succeed())
+			_, err = adapter.Flush(context.Background())
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(capturedAuth).To(Equal([]string{"Bearer first-token", "Bearer second-token"}))
 		})
 
 		It("retains its batch after retryable receiver failures", func() {

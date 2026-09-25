@@ -41,6 +41,8 @@ type costManagementAdapter struct {
 	pending []bufferedEvent
 }
 
+var _ adapters.ProviderAdapter = (*costManagementAdapter)(nil)
+
 func newCostManagementAdapter(client *costManagementClient) *costManagementAdapter {
 	return &costManagementAdapter{client: client}
 }

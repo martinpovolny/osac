@@ -1,10 +1,10 @@
-{{- if .Values.costManagementAdapter.enabled }}
+{{- if .Values.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "osac-metering.fullname" . }}-cost-management-adapter
+  name: {{ include "cost-management-adapter.fullname" . }}
   labels:
-    {{- include "osac-metering.labels" . | nindent 4 }}
+    {{- include "cost-management-adapter.labels" . | nindent 4 }}
     app.kubernetes.io/component: cost-management-adapter
 spec:
   replicas: 1
@@ -12,15 +12,14 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "osac-metering.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: cost-management-adapter
+      {{- include "cost-management-adapter.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "osac-metering.selectorLabels" . | nindent 8 }}
+        {{- include "cost-management-adapter.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: cost-management-adapter
     spec:
-      serviceAccountName: {{ include "osac-metering.fullname" . }}
+      serviceAccountName: {{ include "cost-management-adapter.fullname" . }}
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -33,22 +32,22 @@ spec:
         - name: ca-bundle
           configMap:
             name: {{ .Values.certs.caBundle.configMap }}
-        {{- if .Values.costManagementAdapter.costManagement.apiTokenSecret }}
+        {{- if .Values.costManagement.apiTokenSecret }}
         - name: cost-management-api-token
           secret:
-            secretName: {{ .Values.costManagementAdapter.costManagement.apiTokenSecret }}
+            secretName: {{ .Values.costManagement.apiTokenSecret }}
         {{- end }}
         - name: tmp
           emptyDir:
             sizeLimit: 10Mi
       initContainers:
         - name: fetch-kafka-secrets
-          image: {{ .Values.cliImage | default "quay.io/openshift/origin-cli:4.20.0" }}
+          image: {{ .Values.cliImage | quote }}
           env:
             - name: HOME
               value: /tmp
             - name: SOURCE_NS
-              value: {{ include "osac-metering.kafkaClusterNamespace" . }}
+              value: {{ include "cost-management-adapter.kafkaClusterNamespace" . }}
             - name: SASL_SECRET
               value: osac-metering-cost-management-adapter
           volumeMounts:
@@ -91,11 +90,11 @@ spec:
               oc get secret "${SASL_SECRET}" -n "${SOURCE_NS}" -o jsonpath='{.data.password}' | base64 -d > /etc/kafka-secrets/password
       containers:
         - name: cost-management-adapter
-          image: "{{ required "costManagementAdapter.image.repository is required when costManagementAdapter is enabled" .Values.costManagementAdapter.image.repository }}:{{ required "costManagementAdapter.image.tag is required when costManagementAdapter is enabled" .Values.costManagementAdapter.image.tag }}"
-          imagePullPolicy: {{ .Values.costManagementAdapter.image.pullPolicy | default "Always" }}
+          image: "{{ required "image.repository is required when the adapter is enabled" .Values.image.repository }}:{{ required "image.tag is required when the adapter is enabled" .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "Always" }}
           env:
             - name: KAFKA_BROKERS
-              value: {{ include "osac-metering.kafkaBrokers" . | quote }}
+              value: {{ include "cost-management-adapter.kafkaBrokers" . | quote }}
             - name: KAFKA_TLS_ENABLED
               value: "true"
             - name: KAFKA_TLS_CA_CERT
@@ -103,19 +102,19 @@ spec:
             - name: KAFKA_SASL_USERNAME
               value: osac-metering-cost-management-adapter
             - name: KAFKA_CONSUMER_GROUP
-              value: {{ .Values.costManagementAdapter.costManagement.consumerGroup | default "osac-metering-cost-management-adapter" | quote }}
+              value: {{ .Values.costManagement.consumerGroup | default "cost-management-adapter" | quote }}
             - name: KAFKA_START_OFFSET
-              value: {{ .Values.costManagementAdapter.costManagement.startOffset | default "oldest" | quote }}
+              value: {{ .Values.costManagement.startOffset | default "oldest" | quote }}
             - name: KAFKA_SASL_PASSWORD_FILE
               value: /etc/kafka-secrets/password
             - name: COST_MANAGEMENT_API_URL
-              value: {{ required "costManagementAdapter.costManagement.apiUrl is required when costManagementAdapter is enabled" .Values.costManagementAdapter.costManagement.apiUrl | quote }}
-            {{- if .Values.costManagementAdapter.costManagement.apiTokenSecret }}
+              value: {{ required "costManagement.apiUrl is required when the adapter is enabled" .Values.costManagement.apiUrl | quote }}
+            {{- if .Values.costManagement.apiTokenSecret }}
             - name: COST_MANAGEMENT_API_TOKEN_FILE
               value: /etc/cost-management/api-token
             {{- end }}
             - name: DLQ_TOPIC
-              value: "osac.metering.dlq"
+              value: osac.metering.dlq
             - name: DLQ_ENABLED
               value: "true"
             - name: METRICS_ADDR
@@ -127,7 +126,7 @@ spec:
             - name: ca-bundle
               mountPath: /etc/ca-bundle
               readOnly: true
-            {{- if .Values.costManagementAdapter.costManagement.apiTokenSecret }}
+            {{- if .Values.costManagement.apiTokenSecret }}
             - name: cost-management-api-token
               mountPath: /etc/cost-management
               readOnly: true
@@ -156,10 +155,5 @@ spec:
               drop:
                 - ALL
           resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
-              memory: 128Mi
+            {{- toYaml .Values.resources | nindent 12 }}
 {{- end }}
