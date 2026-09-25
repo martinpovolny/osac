@@ -340,7 +340,7 @@ costManagementAdapter:
     pullPolicy: Always
   costManagement:
     apiUrl: ""
-    apiTokenSecret: "" # name of a K8s Secret with key "api-token"
+    apiTokenSecret: ""  # name of a K8s Secret with key "api-token"
     consumerGroup: "cost-management-adapter"
     startOffset: "oldest"
 
