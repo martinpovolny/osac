@@ -116,7 +116,7 @@ func (c *costManagementClient) authorizationToken() (string, error) {
 	}
 	token := strings.TrimSpace(string(data))
 	if token == "" {
-		return "", fmt.Errorf("Cost Management API token file %q is empty", c.tokenFile)
+		return "", fmt.Errorf("cost management API token file %q is empty", c.tokenFile)
 	}
 	return token, nil
 }
