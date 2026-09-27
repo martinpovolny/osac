@@ -79,6 +79,16 @@ func adapterEventWithType(id, resourceID, resourceType, eventType string) adapte
 	return adapters.MeteringEvent{CloudEvent: canonicalEventWithType(id, resourceID, resourceType, eventType)}
 }
 
+func heartbeatEvent(id, resourceID, resourceType string) adapters.MeteringEvent {
+	ce := canonicalEventWithType(id, resourceID, resourceType, eventTypeHeartbeat)
+	var data map[string]any
+	ExpectWithOffset(1, json.Unmarshal(ce.Data(), &data)).To(Succeed())
+	delete(data, "transition_time")
+	data["duration_seconds"] = 60
+	ExpectWithOffset(1, ce.SetData(cloudevents.ApplicationJSON, data)).To(Succeed())
+	return adapters.MeteringEvent{CloudEvent: ce}
+}
+
 var _ = Describe("costManagementAdapter", func() {
 	Describe("configuration", func() {
 		It("accepts absolute HTTP(S) endpoint URLs and rejects unsafe values", func() {
@@ -101,6 +111,13 @@ var _ = Describe("costManagementAdapter", func() {
 			}
 
 			Expect(adapter.pendingCount()).To(Equal(3))
+		})
+
+		It("accepts OSAC heartbeat events without transition_time", func() {
+			adapter := newCostManagementAdapter(newCostManagementClient("https://cost.example.test", "token"))
+
+			Expect(adapter.Submit(context.Background(), heartbeatEvent("heartbeat-1", "vm-1", schema.ResourceTypeComputeInstance))).To(Succeed())
+			Expect(adapter.pendingCount()).To(Equal(1))
 		})
 
 		It("returns a non-retryable error for a malformed CloudEvent before buffering", func() {
