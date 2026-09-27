@@ -113,11 +113,22 @@ var _ = Describe("costManagementAdapter", func() {
 			Expect(adapter.pendingCount()).To(Equal(3))
 		})
 
-		It("accepts OSAC heartbeat events without transition_time", func() {
+		It("accepts OSAC heartbeat events for every supported resource type", func() {
 			adapter := newCostManagementAdapter(newCostManagementClient("https://cost.example.test", "token"))
 
-			Expect(adapter.Submit(context.Background(), heartbeatEvent("heartbeat-1", "vm-1", schema.ResourceTypeComputeInstance))).To(Succeed())
-			Expect(adapter.pendingCount()).To(Equal(1))
+			for i, resourceType := range []string{
+				schema.ResourceTypeComputeInstance,
+				schema.ResourceTypeClusterOrder,
+				schema.ResourceTypeExternalIP,
+				schema.ResourceTypeNATGateway,
+				schema.ResourceTypeBareMetalInstance,
+				schema.ResourceTypeVolume,
+				resourceTypeMaaSInference,
+			} {
+				event := heartbeatEvent(fmt.Sprintf("heartbeat-%d", i), fmt.Sprintf("resource-%d", i), resourceType)
+				Expect(adapter.Submit(context.Background(), event)).To(Succeed())
+			}
+			Expect(adapter.pendingCount()).To(Equal(7))
 		})
 
 		It("returns a non-retryable error for a malformed CloudEvent before buffering", func() {
