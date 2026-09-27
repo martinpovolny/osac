@@ -102,7 +102,7 @@ spec:
             - name: KAFKA_SASL_USERNAME
               value: osac-metering-cost-management-adapter
             - name: KAFKA_CONSUMER_GROUP
-              value: {{ .Values.costManagement.consumerGroup | default "cost-management-adapter" | quote }}
+              value: {{ include "cost-management-adapter.consumerGroup" . | quote }}
             - name: KAFKA_START_OFFSET
               value: {{ .Values.costManagement.startOffset | default "oldest" | quote }}
             - name: KAFKA_SASL_PASSWORD_FILE

@@ -38,3 +38,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "cost-management-adapter.kafkaBrokers" -}}
 {{- .Values.kafka.brokers | default "osac-kafka-kafka-bootstrap.osac-kafka.svc.cluster.local:9093" }}
 {{- end -}}
+
+{{- define "cost-management-adapter.consumerGroup" -}}
+{{- .Values.costManagement.consumerGroup | default "cost-management-adapter" }}
+{{- end -}}

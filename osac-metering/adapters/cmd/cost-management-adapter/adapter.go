@@ -30,6 +30,16 @@ const (
 	eventTypeHeartbeat        = "osac.resource.heartbeat.v1"
 )
 
+var supportedResourceTypes = map[string]struct{}{
+	schema.ResourceTypeComputeInstance:   {},
+	schema.ResourceTypeClusterOrder:      {},
+	schema.ResourceTypeExternalIP:        {},
+	schema.ResourceTypeNATGateway:        {},
+	schema.ResourceTypeBareMetalInstance: {},
+	schema.ResourceTypeVolume:            {},
+	resourceTypeMaaSInference:            {},
+}
+
 type bufferedEvent struct {
 	encoded json.RawMessage
 }
@@ -192,7 +202,6 @@ func extensionString(ce cloudevents.Event, key string) string {
 }
 
 func isSupportedResourceType(resourceType string) bool {
-	return resourceType == schema.ResourceTypeComputeInstance ||
-		resourceType == schema.ResourceTypeClusterOrder ||
-		resourceType == resourceTypeMaaSInference
+	_, ok := supportedResourceTypes[resourceType]
+	return ok
 }
