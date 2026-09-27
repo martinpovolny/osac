@@ -27,6 +27,7 @@ const (
 	maxBatchEvents            = 100
 	maxBatchBytes             = 1 << 20
 	resourceTypeMaaSInference = "maas_inference"
+	eventTypeHeartbeat        = "osac.resource.heartbeat.v1"
 )
 
 type bufferedEvent struct {
@@ -157,11 +158,14 @@ func validateCloudEvent(ce cloudevents.Event) error {
 	if err := json.Unmarshal(ce.Data(), &data); err != nil {
 		return fmt.Errorf("CloudEvent data must be JSON: %w", err)
 	}
-	if data.ResourceID == "" || data.ResourceType == "" || data.TenantID == "" ||
-		data.TransitionTime == "" || data.SchemaVersion == "" {
+	if data.ResourceID == "" || data.ResourceType == "" || data.TenantID == "" || data.SchemaVersion == "" {
 		return errors.New("CloudEvent data is missing required canonical identity or lifecycle fields")
 	}
-	if _, err := time.Parse(time.RFC3339, data.TransitionTime); err != nil {
+	if data.TransitionTime == "" {
+		if ce.Type() != eventTypeHeartbeat {
+			return errors.New("CloudEvent data is missing required canonical identity or lifecycle fields")
+		}
+	} else if _, err := time.Parse(time.RFC3339, data.TransitionTime); err != nil {
 		return fmt.Errorf("CloudEvent transition_time must be RFC3339: %w", err)
 	}
 	if data.SchemaVersion != schema.SchemaVersion {
