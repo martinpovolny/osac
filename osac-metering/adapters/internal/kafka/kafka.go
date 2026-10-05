@@ -22,10 +22,11 @@ import (
 
 // KafkaConfig configures TLS and SASL for Kafka consumer and producer connections.
 type KafkaConfig struct {
-	TLSEnabled   bool   // Enable TLS for broker connections
-	TLSCACert    string // Path to CA certificate file (empty = system CAs)
-	SASLUser     string // SASL/SCRAM username
-	SASLPassFile string // Path to file containing SASL password
+	TLSEnabled    bool   // Enable TLS for broker connections
+	TLSCACert     string // Path to CA certificate file (empty = system CAs)
+	SASLUser      string // SASL/SCRAM username
+	SASLPassFile  string // Path to file containing SASL password
+	InitialOffset string // Initial consumer offset: oldest (default) or newest
 }
 
 // NewConsumerConfig creates a Sarama config for the adapter consumer group.

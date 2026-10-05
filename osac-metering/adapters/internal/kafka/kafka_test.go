@@ -38,13 +38,13 @@ var _ = Describe("newConsumerConfig", func() {
 	})
 
 	It("supports a newest initial offset", func() {
-		sc, err := newConsumerConfig(KafkaConfig{InitialOffset: "newest"})
+		sc, err := NewConsumerConfig(KafkaConfig{InitialOffset: "newest"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sc.Consumer.Offsets.Initial).To(Equal(int64(sarama.OffsetNewest)))
 	})
 
 	It("rejects an invalid initial offset", func() {
-		_, err := newConsumerConfig(KafkaConfig{InitialOffset: "middle"})
+		_, err := NewConsumerConfig(KafkaConfig{InitialOffset: "middle"})
 		Expect(err).To(MatchError(ContainSubstring("must be oldest or newest")))
 	})
 })

@@ -21,8 +21,9 @@ import (
 	"time"
 
 	"github.com/go-logr/stdr"
-	"github.com/osac-project/osac-metering/adapters"
-	"github.com/osac-project/osac-metering/adapters/envutil"
+	"github.com/osac-project/osac-metering/adapters/internal/envutil"
+	"github.com/osac-project/osac-metering/adapters/internal/kafka"
+	"github.com/osac-project/osac-metering/adapters/internal/runner"
 )
 
 func main() {
@@ -41,7 +42,7 @@ func main() {
 		costClient = newCostManagementClient(costURL, "")
 	}
 
-	topics := adapters.AllTopics
+	topics := kafka.AllTopics
 	if v := os.Getenv("KAFKA_TOPICS"); v != "" {
 		topics = envutil.SplitAndTrim(v, ",")
 		if len(topics) == 0 {
@@ -61,8 +62,8 @@ func main() {
 	}
 
 	logger := stdr.New(log.New(os.Stderr, "", log.LstdFlags))
-	kafkaCfg := adapters.KafkaConfigFromEnv()
-	dlqOpt, dlqClose, err := adapters.DLQOptionFromEnv(brokers, kafkaCfg)
+	kafkaCfg := kafka.KafkaConfigFromEnv()
+	dlqOpt, dlqClose, err := runner.DLQOptionFromEnv(brokers, kafkaCfg)
 	if err != nil {
 		log.Fatalf("setting up DLQ: %v", err)
 	}
@@ -72,12 +73,12 @@ func main() {
 		}
 	}()
 
-	var opts []adapters.RunnerOption
+	var opts []runner.RunnerOption
 	if dlqOpt != nil {
 		opts = append(opts, dlqOpt)
 	}
 	adapter := newCostManagementAdapter(costClient)
-	runner := adapters.NewRunner(adapter, adapters.RunnerConfig{
+	r := runner.NewRunner(adapter, runner.RunnerConfig{
 		Brokers:       brokers,
 		ConsumerGroup: group,
 		Topics:        topics,
@@ -86,7 +87,7 @@ func main() {
 	}, logger, opts...)
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", runner.MetricsHandler())
+	mux.Handle("/metrics", r.MetricsHandler())
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		if err := adapter.HealthCheck(r.Context()); err != nil {
@@ -113,7 +114,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 	log.Printf("starting Cost Management adapter: topics=%v group=%s flush=%s", topics, group, flushInterval)
-	runErr := runner.Run(ctx)
+	runErr := r.Run(ctx)
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
